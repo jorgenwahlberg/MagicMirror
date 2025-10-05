@@ -6,9 +6,10 @@ const express = require("express");
 const ipfilter = require("express-ipfilter").IpFilter;
 const helmet = require("helmet");
 const socketio = require("socket.io");
-
 const Log = require("logger");
-const { cors, getConfig, getHtml, getVersion, getStartup, getEnvVars } = require("./server_functions");
+const { cors, getConfig, getHtml, getVersion, getStartup, getEnvVars } = require("#server_functions");
+
+const vendor = require(`${__dirname}/vendor`);
 
 /**
  * Server
@@ -41,7 +42,9 @@ function Server (config) {
 					origin: /.*$/,
 					credentials: true
 				},
-				allowEIO3: true
+				allowEIO3: true,
+				pingInterval: 120000, // server → client ping every 2 mins
+				pingTimeout: 120000 // wait up to 2 mins for client pong
 			});
 
 			server.on("connection", (socket) => {
@@ -52,6 +55,29 @@ function Server (config) {
 			});
 
 			Log.log(`Starting server on port ${port} ... `);
+
+			// Add explicit error handling BEFORE calling listen so we can give user-friendly feedback
+			server.once("error", (err) => {
+				if (err && err.code === "EADDRINUSE") {
+					const bindAddr = config.address || "localhost";
+					const portInUseMessage = [
+						"",
+						"────────────────────────────────────────────────────────────────",
+						` PORT IN USE: ${bindAddr}:${port}`,
+						"",
+						" Another process (most likely another MagicMirror instance)",
+						" is already using this port.",
+						"",
+						" Stop the other process (free the port) or use a different port.",
+						"────────────────────────────────────────────────────────────────"
+					].join("\n");
+					Log.error(portInUseMessage);
+					return;
+				}
+
+				Log.error("Failed to start server:", err);
+			});
+
 			server.listen(port, config.address || "localhost");
 
 			if (config.ipWhitelist instanceof Array && config.ipWhitelist.length === 0) {
@@ -72,12 +98,13 @@ function Server (config) {
 			app.use(helmet(config.httpHeaders));
 			app.use("/js", express.static(__dirname));
 
-			let directories = ["/config", "/css", "/fonts", "/modules", "/vendor", "/translations"];
-			if (process.env.JEST_WORKER_ID !== undefined) {
-				// add tests directories only when running tests
-				directories.push("/tests/configs", "/tests/mocks");
+			let directories = ["/config", "/css", "/modules", "/node_modules/animate.css", "/node_modules/@fontsource", "/node_modules/@fortawesome", "/translations", "/tests/configs", "/tests/mocks"];
+			for (const [key, value] of Object.entries(vendor)) {
+				const dirArr = value.split("/");
+				if (dirArr[0] === "node_modules") directories.push(`/${dirArr[0]}/${dirArr[1]}`);
 			}
-			for (const directory of directories) {
+			const uniqDirs = [...new Set(directories)];
+			for (const directory of uniqDirs) {
 				app.use(directory, express.static(path.resolve(global.root_path + directory)));
 			}
 

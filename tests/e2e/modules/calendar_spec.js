@@ -42,7 +42,7 @@ describe("Calendar module", () => {
 		});
 
 		it("should show the default calendar symbol in each event", async () => {
-			await expect(testElementLength(".calendar .event .fa-calendar-alt", 0, "not")).resolves.toBe(true);
+			await expect(testElementLength(".calendar .event .fa-calendar-days", 0, "not")).resolves.toBe(true);
 		});
 	});
 
@@ -119,7 +119,6 @@ describe("Calendar module", () => {
 		});
 	});
 
-	process.setMaxListeners(0);
 	for (let i = -12; i < 12; i++) {
 		describe("Recurring event per timezone", () => {
 			beforeAll(async () => {

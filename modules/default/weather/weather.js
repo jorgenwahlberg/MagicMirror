@@ -14,7 +14,8 @@ Module.register("weather", {
 		updateInterval: 10 * 60 * 1000, // every 10 minutes
 		animationSpeed: 1000,
 		showFeelsLike: true,
-		showHumidity: "none", // this is now a string; see current.njk
+		showHumidity: "none", // possible options for "current" weather are "none", "wind", "temp", "feelslike" or "below", for "hourly" weather "none" or "true"
+		hideZeroes: false, // hide zeroes (and empty columns) in hourly, currently only for precipitation
 		showIndoorHumidity: false,
 		showIndoorTemperature: false,
 		allowOverrideNotification: false,
@@ -162,11 +163,12 @@ Module.register("weather", {
 	// What to do when the weather provider has new information available?
 	updateAvailable () {
 		Log.log("New weather information available.");
-		this.updateDom(0);
+		// this value was changed from 0 to 300 to stabilize weather tests:
+		this.updateDom(300);
 		this.scheduleUpdate();
 
 		if (this.weatherProvider.currentWeather()) {
-			this.sendNotification("CURRENTWEATHER_TYPE", { type: this.weatherProvider.currentWeather().weatherType.replace("-", "_") });
+			this.sendNotification("CURRENTWEATHER_TYPE", { type: this.weatherProvider.currentWeather().weatherType?.replace("-", "_") });
 		}
 
 		const notificationPayload = {
